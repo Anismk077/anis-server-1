@@ -1,10 +1,16 @@
 <?php
 declare(strict_types=1);
 
+session_start();
+
 require_once __DIR__ . '/../app/config.php';
 
 $errors = [];
 $success = false;
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 try {
     $pdo = new PDO(
@@ -18,6 +24,12 @@ try {
     );
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $csrfToken = $_POST['csrf_token'] ?? '';
+
+        if (!hash_equals($_SESSION['csrf_token'], $csrfToken)) {
+            $errors[] = "Requête invalide. Recharge la page et réessaie.";
+        }
+
         $nom = trim($_POST['nom'] ?? '');
         $email = trim($_POST['email'] ?? '');
         $contenu = trim($_POST['contenu'] ?? '');
@@ -46,6 +58,8 @@ try {
             ]);
 
             $success = true;
+
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
     }
 
@@ -85,6 +99,12 @@ try {
     <?php endif; ?>
 
     <form method="post">
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>"
+        >
+
         <p>
             <label for="nom">Nom</label><br>
             <input type="text" id="nom" name="nom" maxlength="100" required>
